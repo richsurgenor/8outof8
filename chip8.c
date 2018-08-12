@@ -4,8 +4,39 @@
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 
+// display
+// original display = 64x32 mode, super chip8 = 128x64 mode
+//
+// -----------------
+// sprites
+// chip8 sprites may be up to 15 bytes
+//
+//
+
+
+uint8_t ram[4096];
+
+// Relevant to CPU
+uint16_t pc;
+uint16_t stack[16];
+
+uint16_t Vx[16];
+uint16_t I;
+uint16_t delay_timer;
+uint16_t snd_timer;
+
+
+
+#define REGISTER (*(volatile uint8_t*)0x10000)
+
+//memory should be an 0xffff array? o-o
+
+int initSDL();
+
 int main() {
+	//initSDL();
 	printf ("hello");
+	return 0;
 }	
 
 int initSDL() {
