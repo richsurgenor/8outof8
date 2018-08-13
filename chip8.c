@@ -1,5 +1,5 @@
 #include "SDL2/SDL.h"
-#include "errno.h"
+#include "stdlib.h"
 #include "stdbool.h"
 
 //Screen dimension constants
@@ -8,57 +8,127 @@ const int SCREEN_HEIGHT = 480;
 
 // display
 // original display = 64x32 mode, super chip8 = 128x64 mode
-//
 // -----------------
 // sprites
 // chip8 sprites may be up to 15 bytes
 //
-//
 
+uint8_t ram[0x1000]; 
 
-uint8_t ram[4096];
+/* +---------------+= 0xFFF (4095) End of Chip-8 RAM
+ * |               |
+ * |               |
+ * |               |
+ * |               |
+ * |               |
+ * | 0x200 to 0xFFF|
+ * |     Chip-8    |
+ * | Program / Data|
+ * |     Space     |
+ * |               |
+ * |               |
+ * |               |
+ * +- - - - - - - -+= 0x600 (1536) Start of ETI 660 Chip-8 programs
+ * |               |
+ * |               |
+ * |               |
+ * +---------------+= 0x200 (512) Start of most Chip-8 programs
+ * | 0x000 to 0x1FF|
+ * | Reserved for  |
+ * |  interpreter  |
+ * +---------------+= 0x000 (0) Start of Chip-8 RAM
+ */
+
 
 // Relevant to CPU
 // Initialize
 
 #define REGISTER (*(volatile uint8_t*)0x10000)
-uint16_t pc;
-uint16_t stack[16];
-uint8_t sp;
+static uint16_t pc;
+static uint16_t stack[16];
+static uint8_t sp;
 
-uint16_t Vx[16];
-uint16_t I;
-uint16_t delay_timer;
-uint16_t snd_timer;
+static uint16_t V[16];
+static uint16_t I;
+static uint16_t delay_timer;
+static uint16_t snd_timer;
 
 //memory should be an 0xffff array? o-o
 
 int initSDL();
 void push(uint16_t instruction);
-bool pop(uint16_t *val);
+bool pop(uint16_t *instruction);
+bool load_rom(const char* rom);
 
 errno_t main() {
+    
+    errno_t ret = EXIT_SUCCESS;
+    
+    load_rom("wipeoff.rom");
+    
+    //const char* blah = "hello";
+    //printf( "blah %s this is size of blah %d\n", blah, sizeof(*blah) );
+    
 	//initSDL();
     pc = 0x200;
+    sp = 0;
+
     push(0);
     push(1);
     push(2);
 
-    uint16_t val;
-    while ((val = pop(&val))) {
-        return 0;
+    uint16_t opcode;
+    while ( true ) {
+        bool should_continue = pop(&opcode);
+        printf ("this is my opcode %d\n", opcode);
+
+        if (!should_continue) {
+            break;
+        }
     }
 
-	printf ("hello");
-	return 0;
+	printf ("The program has finished.\n");
+	return ret;
 }	
 
-bool pop(uint16_t *val) {
-    return false;
+bool load_rom(const char* rom) {
+    char *buffer;
+    long filelen;
+    FILE* f_rom = fopen(rom, "r+b");
+    
+    if (!f_rom) {
+        return false; // opening file failed owo
+    }
+    
+    fseek(f_rom, 0, SEEK_END);
+    filelen = ftell(f_rom);
+    rewind(f_rom);
+    
+    buffer = (char *) malloc( (filelen + 1) * sizeof(char) );
+    fread(buffer, filelen, 1, f_rom);
+    fclose(f_rom);
+    
+    //for (int i = 0; i <)
+   
+    return true;
+}
+
+bool pop(uint16_t *instruction) {
+    //printf( "value from stack: %d", stack[sp-1] );
+    *instruction = stack[sp - 1];
+    //printf( "new instruction value: %d", *instruction );
+    sp--; // sp should never be 0 when this is called.. 
+    printf ("this is my sp: %d", sp); 
+    if (sp == 0) {
+        return false;
+    }
+    return true;
 }
 
 void push(uint16_t instruction) { 
+    //printf ("sp: %d\n", sp);
     stack[sp] = instruction;
+    //printf ("instruction: %d\n", instruction);
     sp++;
 }
 
