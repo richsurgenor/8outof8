@@ -13,7 +13,7 @@ const int SCREEN_HEIGHT = 480;
 // chip8 sprites may be up to 15 bytes
 //
 
-uint8_t ram[0x1000]; 
+static uint8_t ram[0x1000];
 
 /* +---------------+= 0xFFF (4095) End of Chip-8 RAM
  * |               |
@@ -94,7 +94,7 @@ errno_t main() {
 bool load_rom(const char* rom) {
     char *buffer;
     long filelen;
-    FILE* f_rom = fopen(rom, "r+b");
+    FILE* f_rom = fopen("/Users/Rich/8outof8_test/8outof8/8outof8/wipeoff.rom", "r+b");
     
     if (!f_rom) {
         return false; // opening file failed owo
@@ -108,7 +108,14 @@ bool load_rom(const char* rom) {
     fread(buffer, filelen, 1, f_rom);
     fclose(f_rom);
     
-    //for (int i = 0; i <)
+    for (int i = 0; i < filelen; i++) {
+        uint16_t start = 0x200;
+        ram[start+i] = *(buffer+i);
+    }
+    
+    //printf("first slot: %x", ram[0x200]);
+    //printf("file length: %d", (int) filelen);
+    //printf("last slot: %x", ram[0x2cd]);
    
     return true;
 }
