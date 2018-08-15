@@ -3,8 +3,8 @@
 #include "stdbool.h"
 
 //Screen dimension constants
-const int SCREEN_WIDTH = 640;
-const int SCREEN_HEIGHT = 480;
+const int SCREEN_WIDTH = 64;
+const int SCREEN_HEIGHT = 32;
 
 // display
 // original display = 64x32 mode, super chip8 = 128x64 mode
@@ -46,16 +46,28 @@ static uint8_t ram[0x1000];
 #define REGISTER (*(volatile uint8_t*)0x10000)
 static uint16_t pc;
 static uint16_t stack[16];
-static uint8_t sp;
+static int sp;
 
 static uint16_t V[16];
 static uint16_t I;
 static uint16_t delay_timer;
 static uint16_t snd_timer;
 
+static int panel[64][32];
+
+// Coordinate system:
+// -------------------------
+// | (0,0)        (63,0)   |
+// |                       |
+// | (0,31)       (63,31)  |
+// -------------------------
+
+
+
 //memory should be an 0xffff array? o-o
 
 int initSDL();
+void draw_SDL_panel();
 void push(uint16_t instruction);
 bool pop(uint16_t *instruction);
 bool load_rom(const char* rom);
@@ -69,13 +81,10 @@ errno_t main() {
     //const char* blah = "hello";
     //printf( "blah %s this is size of blah %d\n", blah, sizeof(*blah) );
     
-	//initSDL();
+	initSDL();
     pc = 0x200;
     sp = 0;
 
-    push(0);
-    push(1);
-    push(2);
 
     uint16_t opcode;
     while ( true ) {
@@ -126,7 +135,7 @@ bool pop(uint16_t *instruction) {
     //printf( "new instruction value: %d", *instruction );
     sp--; // sp should never be 0 when this is called.. 
     printf ("this is my sp: %d", sp); 
-    if (sp == 0) {
+    if (sp <= 0) {
         return false;
     }
     return true;
@@ -158,6 +167,9 @@ int initSDL() {
 
 	//The image we will load and show on the screen
 	SDL_Surface* gHelloWorld = NULL;
+    
+    // Initialize Renderer
+    SDL_Renderer *renderer = NULL;
 
 	//Initialize SDL
 	if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
@@ -167,26 +179,38 @@ int initSDL() {
 	else
 	{
 		//Create window
-		window = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
-		if( window == NULL )
+		//window = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+        //Create window w/ renderer
+        
+        SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 3, &window, &renderer);
+
+		if( window == NULL || renderer == NULL)
 		{
-			printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() );
+			printf( "Window or renderer could not be created! SDL_Error: %s\n", SDL_GetError() );
 		}
 		else
 		{
 			//Get window surface
-			screenSurface = SDL_GetWindowSurface( window );
+			//screenSurface = SDL_GetWindowSurface( window );
 
 			//Fill the surface white
-			SDL_FillRect( screenSurface, NULL, SDL_MapRGB( screenSurface->format, 0x00, 0x00, 0x00 ) );
+			//SDL_FillRect( screenSurface, NULL, SDL_MapRGB( screenSurface->format, 0x00, 0x00, 0x00 ) );
 			
+            SDL_SetRenderDrawColor(renderer, 0, 255, 255, 0);
+            
+            SDL_Point test_point = { .x = 400, .y=400 };
+            
+            const SDL_Point* point_array = { &test_point };
+            
+            SDL_RenderDrawPoints( renderer, point_array, 1);
+            SDL_RenderPresent(renderer);
 			// img pls
-			gHelloWorld = SDL_LoadBMP( "hello_world.bmp" );
-			if ( gHelloWorld == NULL ) {
-				printf( "ree" );
-			}
+			//gHelloWorld = SDL_LoadBMP( "hello_world.bmp" );
+			//if ( gHelloWorld == NULL ) {
+			//	printf( "ree" );
+			//}
 
-			SDL_BlitSurface( gHelloWorld, NULL, screenSurface, NULL );
+			//SDL_BlitSurface( gHelloWorld, NULL, screenSurface, NULL );
 			
 			//Update the surface
 			SDL_UpdateWindowSurface( window );
@@ -202,4 +226,9 @@ int initSDL() {
 	SDL_Quit();
 
 	return 0;
+}
+
+void draw_sdl_panel() {
+    
+    return;
 }
