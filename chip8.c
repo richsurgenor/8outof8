@@ -169,7 +169,7 @@ int initSDL() {
 	SDL_Surface* gHelloWorld = NULL;
     
     // Initialize Renderer
-    SDL_Renderer *renderer = NULL;
+    SDL_Renderer* renderer = NULL;
 
 	//Initialize SDL
 	if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
@@ -182,7 +182,7 @@ int initSDL() {
 		//window = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
         //Create window w/ renderer
         
-        SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 3, &window, &renderer);
+        SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0/*SDL_WINDOW_FULLSCREEN*/, &window, &renderer);
 
 		if( window == NULL || renderer == NULL)
 		{
@@ -196,13 +196,22 @@ int initSDL() {
 			//Fill the surface white
 			//SDL_FillRect( screenSurface, NULL, SDL_MapRGB( screenSurface->format, 0x00, 0x00, 0x00 ) );
 			
-            SDL_SetRenderDrawColor(renderer, 0, 255, 255, 0);
+            if (SDL_SetRenderDrawColor(renderer, 0, 100, 100, SDL_ALPHA_OPAQUE)) {
+                printf("Failed to set render draw color.");
+                exit(1);
+            }
             
-            SDL_Point test_point = { .x = 400, .y=400 };
+            SDL_Point points[100];
+            //SDL_Point test_point = { .x = 8, .y=8 };
             
-            const SDL_Point* point_array = { &test_point };
+            for (int i = 0; i < 14; i++) {
+                points[i].x = i;
+                points[i].y = i;
+            }
             
-            SDL_RenderDrawPoints( renderer, point_array, 1);
+            //const SDL_Point* point_array = { points };
+            
+            SDL_RenderDrawPoints( renderer, points, 14);
             SDL_RenderPresent(renderer);
 			// img pls
 			//gHelloWorld = SDL_LoadBMP( "hello_world.bmp" );
