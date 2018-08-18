@@ -19,6 +19,9 @@ static SDL_Surface* screenSurface = NULL;
 // Initialize Renderer
 static SDL_Renderer* renderer = NULL;
 
+// SDL Event Handler
+static SDL_Event e;
+
 
 
 // display
@@ -101,17 +104,82 @@ errno_t main() {
     pc = 0x200;
     sp = 0;
 
+    for (int i = 0; i < 7; i++) {
+        push(i);
+    }
 
 	//Wait two seconds
-	SDL_Delay( 5000 );
     uint16_t opcode;
-    while ( true ) {
-        bool should_continue = pop(&opcode);
-        printf ("this is my opcode %d\n", opcode);
-
-        if (!should_continue) {
-            break;
+    
+    int moving_example = 0;
+    bool quit = false;
+    while ( !quit ) {
+        
+        while( SDL_PollEvent( &e ) != 0 )
+        {
+            //User requests quit
+            if( e.type == SDL_QUIT )
+            {
+                quit = true;
+            }
         }
+        
+        //bool should_continue = pop(&opcode);
+        printf ("this is my opcode %d\n", opcode);
+        
+        if( window == NULL || renderer == NULL)
+		{
+			printf( "Window or renderer could not be created! SDL_Error: %s\n", SDL_GetError() );
+            exit(1);
+		}
+		else
+		{
+			//Get window surface
+			//screenSurface = SDL_GetWindowSurface( window );
+
+			//Fill the surface white
+			//SDL_FillRect( screenSurface, NULL, SDL_MapRGB( screenSurface->format, 0x00, 0x00, 0x00 ) );
+			
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+            
+            SDL_RenderClear(renderer); // sets background color
+            
+            SDL_SetRenderDrawColor(renderer, 0, 255, 0, SDL_ALPHA_OPAQUE);
+            
+            SDL_Point points[100];
+            //SDL_Point test_point = { .x = 8, .y=8 };
+            
+            for (int i = 0; i < 14; i++) {
+                points[i].x = i+moving_example;
+                points[i].y = i+moving_example;
+            }
+            
+            //const SDL_Point* point_array = { points };
+            
+            SDL_RenderDrawPoints( renderer, points, 14);
+            //SDL_RenderDrawPoints( renderer, points, 14);
+            
+            //SDL_BlitSurface( gXOut, NULL, gScreenSurface, NULL );
+            SDL_RenderPresent(renderer);
+			// img pls
+			//gHelloWorld = SDL_LoadBMP( "hello_world.bmp" );
+			//if ( gHelloWorld == NULL ) {
+			//	printf( "ree" );
+			//}
+
+			//SDL_BlitSurface( gHelloWorld, NULL, screenSurface, NULL );
+			
+			//Update the surface
+			SDL_UpdateWindowSurface( window );
+		}
+        
+        moving_example++;
+	
+        SDL_Delay( 500 );
+
+        /*if (!should_continue) {
+            break;
+        }*/
     }
 
 	printf ("The program has finished.\n");
@@ -197,56 +265,18 @@ int initSDL() {
         
         SDL_CreateWindowAndRenderer(SCREEN_WIDTH * WINDOW_SCALE, SCREEN_HEIGHT * WINDOW_SCALE, 0, &window, &renderer);
         SDL_RenderSetScale(renderer, WINDOW_SCALE, WINDOW_SCALE);
-
-		if( window == NULL || renderer == NULL)
-		{
-			printf( "Window or renderer could not be created! SDL_Error: %s\n", SDL_GetError() );
-            exit(1);
-		}
-		else
-		{
-			//Get window surface
-			//screenSurface = SDL_GetWindowSurface( window );
-
-			//Fill the surface white
-			//SDL_FillRect( screenSurface, NULL, SDL_MapRGB( screenSurface->format, 0x00, 0x00, 0x00 ) );
-			
-            SDL_RenderClear(renderer); // sets background color
-            
-            SDL_SetRenderDrawColor(renderer, 0, 255, 0, SDL_ALPHA_OPAQUE);
-            
-            SDL_Point points[100];
-            //SDL_Point test_point = { .x = 8, .y=8 };
-            
-            for (int i = 0; i < 14; i++) {
-                points[i].x = i;
-                points[i].y = i;
-            }
-            
-            //const SDL_Point* point_array = { points };
-            
-            SDL_RenderDrawPoints( renderer, points, 14);
-            SDL_RenderDrawPoints( renderer, points, 14);
-            SDL_RenderPresent(renderer);
-			// img pls
-			//gHelloWorld = SDL_LoadBMP( "hello_world.bmp" );
-			//if ( gHelloWorld == NULL ) {
-			//	printf( "ree" );
-			//}
-
-			//SDL_BlitSurface( gHelloWorld, NULL, screenSurface, NULL );
-			
-			//Update the surface
-			SDL_UpdateWindowSurface( window );
-
-		}
-	}
-	
-
+    }
+		
 	return 0;
 }
 
 void draw_sdl_panel() {
     
+    // set panel to black
+    // get list of points that need to be drawn
+    // draw points and update panel
+    // not sure how fast to draw or if it matters?
+    
+    // decrement the timers through a thread? (this adds more complexity to the application)
     return;
 }
