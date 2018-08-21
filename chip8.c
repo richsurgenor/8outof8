@@ -241,7 +241,17 @@ void push(uint16_t instruction) {
     sp++;
 }
 
-errno_t execute () {
+errno_t execute (uint16_t instruction) {
+    // switch statements or function pointers?
+    
+    switch (instruction) { // first level
+        case 0x00e0: // CLS - Clear the display
+            break;
+        default:
+            printf("Invalid instruction");
+            break;
+    }
+        
     return 0;
 }
 
@@ -271,12 +281,12 @@ int initSDL() {
 }
 
 void draw_sdl_panel() {
-    
     // set panel to black
     // get list of points that need to be drawn
     // draw points and update panel
     // not sure how fast to draw or if it matters?
     
     // decrement the timers through a thread? (this adds more complexity to the application)
+    // decision: let the emulator run as fast as possible at first, and then later come back to threading
     return;
 }
