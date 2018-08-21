@@ -89,6 +89,7 @@ void draw_SDL_panel();
 void push(uint16_t instruction);
 bool pop(uint16_t *instruction);
 bool load_rom(const char* rom);
+errno_t execute_instruction(uint16_t instruction);
 
 errno_t main() {
     
@@ -113,8 +114,11 @@ errno_t main() {
     
     int moving_example = 0;
     bool quit = false;
+    
+    // game loop
     while ( !quit ) {
         
+        // event loop
         while( SDL_PollEvent( &e ) != 0 )
         {
             //User requests quit
@@ -125,6 +129,7 @@ errno_t main() {
         }
         
         //bool should_continue = pop(&opcode);
+        
         printf ("this is my opcode %d\n", opcode);
         
         if( window == NULL || renderer == NULL)
@@ -132,8 +137,9 @@ errno_t main() {
 			printf( "Window or renderer could not be created! SDL_Error: %s\n", SDL_GetError() );
             exit(1);
 		}
-		else
-		{
+		
+        bool draw = false;
+        if (draw) {
 			//Get window surface
 			//screenSurface = SDL_GetWindowSurface( window );
 
@@ -172,6 +178,15 @@ errno_t main() {
 			//Update the surface
 			SDL_UpdateWindowSurface( window );
 		}
+        
+        uint16_t instruction;
+        
+        // retrieve next instruction
+        instruction = ram[pc+0];
+        instruction = instruction << 8;
+        instruction |= ram[pc+1];
+        
+        execute_instruction(instruction);
         
         moving_example++;
 	
@@ -241,8 +256,13 @@ void push(uint16_t instruction) {
     sp++;
 }
 
-errno_t execute (uint16_t instruction) {
+
+// going to have to decode instructions based on each byte of information
+
+errno_t execute_instruction (uint16_t instruction) {
     // switch statements or function pointers?
+    // decision: because of the variable length nature of the operands,
+    // switch statements will be more practical.
     
     switch (instruction) { // first level
         case 0x00e0: // CLS - Clear the display
