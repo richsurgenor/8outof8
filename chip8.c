@@ -66,7 +66,7 @@ static uint16_t pc;
 static uint16_t stack[16];
 static int sp;
 
-static uint16_t V[16];
+static uint8_t V[16];
 static uint16_t I;
 static uint16_t delay_timer;
 static uint16_t snd_timer;
@@ -86,8 +86,8 @@ static int panel[64][32];
 
 int initSDL();
 void draw_SDL_panel();
-void push(uint16_t instruction);
-bool pop(uint16_t *instruction);
+void push(uint16_t pc_in);
+bool pop(uint16_t *pc_in);
 bool load_rom(const char* rom);
 errno_t execute_instruction(uint16_t instruction);
 
@@ -237,9 +237,9 @@ bool load_rom(const char* rom) {
     return true;
 }
 
-bool pop(uint16_t *instruction) {
+bool pop(uint16_t *pc_in) {
     //printf( "value from stack: %d", stack[sp-1] );
-    *instruction = stack[sp - 1];
+    *pc_in = stack[sp - 1];
     //printf( "new instruction value: %d", *instruction );
     sp--; // sp should never be 0 when this is called.. 
     printf ("this is my sp: %d", sp); 
@@ -249,9 +249,9 @@ bool pop(uint16_t *instruction) {
     return true;
 }
 
-void push(uint16_t instruction) { 
+void push(uint16_t pc_in) {
     //printf ("sp: %d\n", sp);
-    stack[sp] = instruction;
+    stack[sp] = pc_in;
     //printf ("instruction: %d\n", instruction);
     sp++;
 }
@@ -264,14 +264,50 @@ errno_t execute_instruction (uint16_t instruction) {
     // decision: because of the variable length nature of the operands,
     // switch statements will be more practical.
     
-    switch (instruction) { // first level
-        case 0x00e0: // CLS - Clear the display
+    if (instruction == 0x00e0) { // CLS: Clear the display
+        // stuff
+    }
+    
+    switch ( instruction & 0xF000 ) { // first level
+        case 0x1000: // JP: Jump to location nnn
+            pc = instruction & ~(0xF000); // only preserve nnn
             break;
+        case 0x2000: // CALL: Call subroutine at nnn
+            sp++;
+            push(pc);
+            pc = instruction & ~(0xF000);
+            break;
+        case 0x3000: // SE Vx, byte
+            // If Vx == kk, inc pc by 2
+            if ( V[(instruction & 0x0F00)] == (instruction & 0x00FF )) {
+                pc += 4;
+            } else {
+                pc += 2;
+            }
+            break;
+        case 0x4000: // SNE Vx, byte
+            // Skip next instruction if Vx != kk
+            if ( V[(instruction & 0x0F00)] != (instruction & 0x00FF )) {
+                pc += 4;
+            } else {
+                pc += 2;
+            }
+            break;
+        case 0x6000: // LD Vx, byte
+            // Set Vx = kk
+            // dont worry, no need to cast! upper byte will be discarded safely ;)
+            V[(instruction & 0x0F00)] = (instruction & 0x00FF);
+        case 0x7000: // ADD Vx, byte
+            // Set Vx = Vx + kk
+            V[(instruction & 0x0F00)] = V[(instruction & 0x0F00)] + (instruction & 0x00FF);
         default:
-            printf("Invalid instruction");
+            printf("Invalid instruction: %x", instruction);
             break;
     }
-        
+    
+    /* skipped instructions:
+     5xy0
+    */
     return 0;
 }
 
@@ -282,9 +318,8 @@ int test() {
 }
 
 int initSDL() {
-		//Initialize SDL
-	if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
-	{
+	//Initialize SDL
+    if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
 	}
 	else
