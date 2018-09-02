@@ -279,7 +279,7 @@ errno_t execute_instruction (uint16_t instruction) {
             break;
         case 0x3000: // SE Vx, byte
             // If Vx == kk, inc pc by 2
-            if ( V[(instruction & 0x0F00)] == (instruction & 0x00FF )) {
+            if ( V[(instruction & 0x0F00) >> 8] == (instruction & 0x00FF )) {
                 pc += 4;
             } else {
                 pc += 2;
@@ -287,7 +287,7 @@ errno_t execute_instruction (uint16_t instruction) {
             break;
         case 0x4000: // SNE Vx, byte
             // Skip next instruction if Vx != kk
-            if ( V[(instruction & 0x0F00)] != (instruction & 0x00FF )) {
+            if ( V[(instruction & 0x0F00) >> 8] != (instruction & 0x00FF )) {
                 pc += 4;
             } else {
                 pc += 2;
@@ -296,10 +296,12 @@ errno_t execute_instruction (uint16_t instruction) {
         case 0x6000: // LD Vx, byte
             // Set Vx = kk
             // dont worry, no need to cast! upper byte will be discarded safely ;)
-            V[(instruction & 0x0F00)] = (instruction & 0x00FF);
+            V[(instruction & 0x0F00) >> 8] = (instruction & 0x00FF);
+            break;
         case 0x7000: // ADD Vx, byte
             // Set Vx = Vx + kk
-            V[(instruction & 0x0F00)] = V[(instruction & 0x0F00)] + (instruction & 0x00FF);
+            V[(instruction & 0x0F00) >> 8] = V[(instruction & 0x0F00) >> 8] + (instruction & 0x00FF);
+            break;
         default:
             printf("Invalid instruction: %x", instruction);
             break;
