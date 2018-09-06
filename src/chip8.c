@@ -240,6 +240,14 @@ bool load_rom(const char* rom) {
     return true;
 }
 
+void set_pc(uint16_t val) {
+    pc = val;
+}
+
+void inc_pc(uint16_t inc) {
+    pc += 2 * inc;
+}
+
 bool pop(uint16_t *pc_in) {
     //printf( "value from stack: %d", stack[sp-1] );
     *pc_in = stack[sp - 1];
@@ -289,58 +297,66 @@ errno_t execute_instruction (uint16_t instruction) {
     // note that instructions are in multiples of 2, so when spec says inc pc by 2, it will be inc by 4 and so on.
     switch ( instruction & 0xF000 ) { // first level
         case 0x1000: // JP: Jump to location nnn
-            pc = dozens[0]; // instruction & ~(0xF000); // only preserve nnn
+            set_pc(dozens[0]); // instruction & ~(0xF000); // only preserve nnn
             break;
         case 0x2000: // CALL: Call subroutine at nnn
             sp++;
             push(pc);
-            pc = dozens[0]; // instruction & ~(0xF000);
+            set_pc(dozens[0]); // instruction & ~(0xF000);
             break;
         case 0x3000: // SE Vx, byte
             // If Vx == kk, inc pc by 2
             if ( V[ nibbles[2] ] == bytes[1]) {
-                pc += 4;
+                inc_pc(2);
             } else {
-                pc += 2;
+                inc_pc(1);;
             }
             break;
         case 0x4000: // SNE Vx, byte
             // Skip next instruction if Vx != kk
             if ( V[ nibbles[2] ] != ( bytes[0] )) {
-                pc += 4;
+                inc_pc(2);
             } else {
-                pc += 2;
+                inc_pc(1);
             }
             break;
         case 0x6000: // LD Vx, byte
             // Set Vx = kk
             V[ nibbles[2] ] = ( bytes[0] );
+            inc_pc(1);
             break;
         case 0x7000: // 7xkk : ADD Vx, byte
             // Set Vx = Vx + kk
             V[ nibbles[2] ] = V[ nibbles[2] ] + bytes[0];
+            inc_pc(1);
             break;
         case 0x8000: {
             switch( instruction & 0xF00F) {
                 case 0x8000: // 8xy0 : LD Vx, Vy
                     // Set Vx = Vy
                     V[ nibbles[2] ] = V[ nibbles[1] ];
+                    inc_pc(1);
                     break;
                 case 0x8001: // 8xy1 : OR Vx, Vy
                     // Set Vx = Vx OR Vy
                     V[ nibbles[2] ] = V[ nibbles[2] ] | V [ nibbles[1] ];
+                    inc_pc(1);
                     break;
                 case 0x8002: // 8xy2 : AND Vx, Vy
                     V[ nibbles[2] ] = V[ nibbles[2] ] & V [ nibbles[1] ];
+                    inc_pc(1);
                     break;
                 case 0x8003: // 8xy3 : XOR Vx, Vy
                     V[ nibbles[2] ] = V[ nibbles[2] ] ^ V [ nibbles[1] ];
+                    inc_pc(1);
                     break;
                 case 0x8004: // 8xy4 : ADD Vx, Vy
                     V[ nibbles[2] ] = V[ nibbles[2] ] + V [ nibbles[1] ];
+                    inc_pc(1);
                     break;
                 case 0x8005: // 8xy5 : SUB Vx, Vy
                     V[ nibbles[2] ] = V[ nibbles[2] ] - V [ nibbles[1] ];
+                    inc_pc(1);
                     break;
                 case 0x8006: // 8xy6 : SHR Vx {, Vy}
                     // Set Vx = Vx SHR 1.
@@ -349,6 +365,7 @@ errno_t execute_instruction (uint16_t instruction) {
                     } else {
                         V[0xf] = 0;
                     }
+                    inc_pc(1);
                     break;
                 case 0x8007: // 8xy7 : SUBN Vx, Vy
                     // Set Vx = Vy - Vx, set VF = NOT borrow
@@ -359,12 +376,38 @@ errno_t execute_instruction (uint16_t instruction) {
                     }
                     
                     V[ nibbles[2] ] = V[ nibbles[1] ] - V[ nibbles[2] ];
+                    inc_pc(1);
+                    break;
+                case 0x800E: // SHL Vx {, Vy}
+                    // Set Vx = Vx SHL 1
+                    if ( V[ nibbles[2] ] & 8000) {
+                        V[0xF] = 1;
+                    } else {
+                        V[0xF] = 0;
+                    }
+                    inc_pc(1);
                     break;
                 default:
                     printf("Invalid instruction: %x", instruction);
                     break;
             }
+        case 0x9000: // SNE Vx, Vy
+            if ( V[ nibbles[2] ] != V[ nibbles[1] ]) {
+                inc_pc(2);
+            } else {
+                inc_pc(1);
+            }
+            break;
         }
+        case 0xA000: // LD I, addr
+            // Set I = nnn
+            I = dozens[0];
+            inc_pc(1);
+            break;
+        case 0xB000: // JP V0, addr
+            // Jump to location nnn + V0
+            set_pc( V[0] + dozens[0] );
+            break;
         default:
             printf("Invalid instruction: %x", instruction);
             break;

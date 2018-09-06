@@ -17,6 +17,8 @@ int initSDL();
 void draw_SDL_panel();
 void push(uint16_t pc_in);
 bool pop(uint16_t *pc_in);
+void set_pc(uint16_t val);
+void inc_pc(uint16_t inc);
 bool load_rom(const char* rom);
 void fetch();
 errno_t execute_instruction(uint16_t instruction);
