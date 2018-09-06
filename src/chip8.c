@@ -283,8 +283,8 @@ errno_t execute_instruction (uint16_t instruction) {
     bytes[1] = nibbles[2] + nibbles[3];
     
     uint16_t dozens[2];
-    dozens[0] = nibbles[1] + bytes[1]; // first 3 nibbles (from right)
-    dozens[1] = bytes[0] + nibbles[2]; // last 3 nibbles (from right)
+    dozens[0] = bytes[0] + nibbles[2]; // first 3 nibbles (from right)
+    dozens[1] = nibbles[1] + bytes[1]; // last 3 nibbles (from right)
     
     // note that instructions are in multiples of 2, so when spec says inc pc by 2, it will be inc by 4 and so on.
     switch ( instruction & 0xF000 ) { // first level
@@ -343,16 +343,23 @@ errno_t execute_instruction (uint16_t instruction) {
                     V[ nibbles[2] ] = V[ nibbles[2] ] - V [ nibbles[1] ];
                     break;
                 case 0x8006: // 8xy6 : SHR Vx {, Vy}
-                    //Set Vx = Vx SHR 1.
+                    // Set Vx = Vx SHR 1.
                     if ( V[ nibbles[2] ] & 0x1) { // if LSBit of Vx=1
                         V[0xF] = 1;
                     } else {
                         V[0xf] = 0;
                     }
                     break;
-                case 0x8007: // 8xy7 :
-                    break;
+                case 0x8007: // 8xy7 : SUBN Vx, Vy
+                    // Set Vx = Vy - Vx, set VF = NOT borrow
+                    if ( V[ nibbles[1] ] > V[ nibbles[2] ] ) {
+                        V[0xF] = 1;
+                    } else {
+                        V[0xF] = 0;
+                    }
                     
+                    V[ nibbles[2] ] = V[ nibbles[1] ] - V[ nibbles[2] ];
+                    break;
                 default:
                     printf("Invalid instruction: %x", instruction);
                     break;
