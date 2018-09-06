@@ -1,6 +1,8 @@
+#include "chip8.h"
 #include "SDL2/SDL.h"
-#include "stdlib.h"
-#include "stdbool.h"
+#include <unistd.h>
+#include <stdio.h>
+#include <limits.h>
 
 //Screen dimension constants
 const int WINDOW_SCALE = 10;
@@ -84,18 +86,13 @@ static int panel[64][32];
 
 //memory should be an 0xffff array? o-o
 
-int initSDL();
-void draw_SDL_panel();
-void push(uint16_t pc_in);
-bool pop(uint16_t *pc_in);
-bool load_rom(const char* rom);
-errno_t execute_instruction(uint16_t instruction);
 
-errno_t main() {
+errno_t run(char* rom) {
     
     errno_t ret = EXIT_SUCCESS;
     
-    load_rom("wipeoff.rom");
+    //load_rom("wipeoff.rom");
+    load_rom(rom);
     
     //const char* blah = "hello";
     //printf( "blah %s this is size of blah %d\n", blah, sizeof(*blah) );
@@ -179,14 +176,7 @@ errno_t main() {
 			SDL_UpdateWindowSurface( window );
 		}
         
-        uint16_t instruction;
-        
-        // retrieve next instruction
-        instruction = ram[pc+0];
-        instruction = instruction << 8;
-        instruction |= ram[pc+1];
-        
-        execute_instruction(instruction);
+        fetch();
         
         moving_example++;
 	
@@ -208,13 +198,26 @@ errno_t main() {
 	return ret;
 }	
 
+void fetch() {
+    uint16_t instruction;
+    // retrieve next instruction
+    instruction = ram[pc+0];
+    instruction = instruction << 8;
+    instruction |= ram[pc+1];
+    
+    execute_instruction(instruction);
+    
+}
+
 bool load_rom(const char* rom) {
+    
     char *buffer;
     long filelen;
-    FILE* f_rom = fopen("/Users/Rich/8outof8_test/8outof8/8outof8/wipeoff.rom", "r+b");
+    
+    FILE* f_rom = fopen(rom, "r+b");
     
     if (!f_rom) {
-        return false; // opening file failed owo
+        exit(1); // opening file failed owo
     }
     
     fseek(f_rom, 0, SEEK_END);
@@ -225,8 +228,8 @@ bool load_rom(const char* rom) {
     fread(buffer, filelen, 1, f_rom);
     fclose(f_rom);
     
+    uint16_t start = 0x200;
     for (int i = 0; i < filelen; i++) {
-        uint16_t start = 0x200;
         ram[start+i] = *(buffer+i);
     }
     
@@ -266,20 +269,36 @@ errno_t execute_instruction (uint16_t instruction) {
     
     if (instruction == 0x00e0) { // CLS: Clear the display
         // stuff
+        return 0;
     }
     
+    uint8_t nibbles[4];
+    nibbles[0] = (instruction & 0x000F);
+    nibbles[1] = (instruction & 0x00F0) >> 4;
+    nibbles[2] = (instruction & 0x0F00) >> 8;
+    nibbles[3] = (instruction & 0xF000) >> 12;
+    
+    uint8_t bytes[2];
+    bytes[0] = nibbles[0] + nibbles[1];
+    bytes[1] = nibbles[2] + nibbles[3];
+    
+    uint16_t dozens[2];
+    dozens[0] = nibbles[1] + bytes[1]; // first 3 nibbles (from right)
+    dozens[1] = bytes[0] + nibbles[2]; // last 3 nibbles (from right)
+    
+    // note that instructions are in multiples of 2, so when spec says inc pc by 2, it will be inc by 4 and so on.
     switch ( instruction & 0xF000 ) { // first level
         case 0x1000: // JP: Jump to location nnn
-            pc = instruction & ~(0xF000); // only preserve nnn
+            pc = dozens[0]; // instruction & ~(0xF000); // only preserve nnn
             break;
         case 0x2000: // CALL: Call subroutine at nnn
             sp++;
             push(pc);
-            pc = instruction & ~(0xF000);
+            pc = dozens[0]; // instruction & ~(0xF000);
             break;
         case 0x3000: // SE Vx, byte
             // If Vx == kk, inc pc by 2
-            if ( V[(instruction & 0x0F00) >> 8] == (instruction & 0x00FF )) {
+            if ( V[ nibbles[2] ] == bytes[1]) {
                 pc += 4;
             } else {
                 pc += 2;
@@ -287,7 +306,7 @@ errno_t execute_instruction (uint16_t instruction) {
             break;
         case 0x4000: // SNE Vx, byte
             // Skip next instruction if Vx != kk
-            if ( V[(instruction & 0x0F00) >> 8] != (instruction & 0x00FF )) {
+            if ( V[ nibbles[2] ] != ( bytes[0] )) {
                 pc += 4;
             } else {
                 pc += 2;
@@ -295,16 +314,55 @@ errno_t execute_instruction (uint16_t instruction) {
             break;
         case 0x6000: // LD Vx, byte
             // Set Vx = kk
-            // dont worry, no need to cast! upper byte will be discarded safely ;)
-            V[(instruction & 0x0F00) >> 8] = (instruction & 0x00FF);
+            V[ nibbles[2] ] = ( bytes[0] );
             break;
-        case 0x7000: // ADD Vx, byte
+        case 0x7000: // 7xkk : ADD Vx, byte
             // Set Vx = Vx + kk
-            V[(instruction & 0x0F00) >> 8] = V[(instruction & 0x0F00) >> 8] + (instruction & 0x00FF);
+            V[ nibbles[2] ] = V[ nibbles[2] ] + bytes[0];
             break;
+        case 0x8000: {
+            switch( instruction & 0xF00F) {
+                case 0x8000: // 8xy0 : LD Vx, Vy
+                    // Set Vx = Vy
+                    V[ nibbles[2] ] = V[ nibbles[1] ];
+                    break;
+                case 0x8001: // 8xy1 : OR Vx, Vy
+                    // Set Vx = Vx OR Vy
+                    V[ nibbles[2] ] = V[ nibbles[2] ] | V [ nibbles[1] ];
+                    break;
+                case 0x8002: // 8xy2 : AND Vx, Vy
+                    V[ nibbles[2] ] = V[ nibbles[2] ] & V [ nibbles[1] ];
+                    break;
+                case 0x8003: // 8xy3 : XOR Vx, Vy
+                    V[ nibbles[2] ] = V[ nibbles[2] ] ^ V [ nibbles[1] ];
+                    break;
+                case 0x8004: // 8xy4 : ADD Vx, Vy
+                    V[ nibbles[2] ] = V[ nibbles[2] ] + V [ nibbles[1] ];
+                    break;
+                case 0x8005: // 8xy5 : SUB Vx, Vy
+                    V[ nibbles[2] ] = V[ nibbles[2] ] - V [ nibbles[1] ];
+                    break;
+                case 0x8006: // 8xy6 : SHR Vx {, Vy}
+                    //Set Vx = Vx SHR 1.
+                    if ( V[ nibbles[2] ] & 0x1) { // if LSBit of Vx=1
+                        V[0xF] = 1;
+                    } else {
+                        V[0xf] = 0;
+                    }
+                    break;
+                case 0x8007: // 8xy7 :
+                    break;
+                    
+                default:
+                    printf("Invalid instruction: %x", instruction);
+                    break;
+            }
+        }
         default:
             printf("Invalid instruction: %x", instruction);
             break;
+        common:
+            return 0;
     }
     
     /* skipped instructions:
@@ -346,4 +404,10 @@ void draw_sdl_panel() {
     // decrement the timers through a thread? (this adds more complexity to the application)
     // decision: let the emulator run as fast as possible at first, and then later come back to threading
     return;
+}
+
+
+void run_basic_tests(char* rom) {
+    load_rom(rom);
+    
 }
