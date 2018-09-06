@@ -75,6 +75,8 @@ static uint16_t snd_timer;
 
 static int panel[64][32];
 
+static char key[0xF];
+
 // Coordinate system:
 // -------------------------
 // | (0,0)        (63,0)   |
@@ -116,13 +118,50 @@ errno_t run(char* rom) {
     while ( !quit ) {
         
         // event loop
-        while( SDL_PollEvent( &e ) != 0 )
-        {
+        while( SDL_PollEvent( &e ) != 0 ) {
             //User requests quit
-            if( e.type == SDL_QUIT )
-            {
+            if( e.type == SDL_QUIT ) {
                 quit = true;
-            }
+            } else if (e.type == SDL_KEYDOWN) {
+                
+                switch(e.key.keysym.sym) {
+                    case SDLK_1: key[0x1] = 1; break;
+                    case SDLK_2: key[0x2] = 1; break;
+                    case SDLK_3: key[0x3] = 1; break;
+                    case SDLK_4: key[0xC] = 1; break;
+                    case SDLK_q: key[0x4] = 1; break;
+                    case SDLK_w: key[0x5] = 1; break;
+                    case SDLK_e: key[0x6] = 1; break;
+                    case SDLK_r: key[0xD] = 1; break;
+                    case SDLK_a: key[0x7] = 1; break;
+                    case SDLK_s: key[0x8] = 1; break;
+                    case SDLK_d: key[0x9] = 1; break;
+                    case SDLK_f: key[0xE] = 1; break;
+                    case SDLK_z: key[0xA] = 1; break;
+                    case SDLK_x: key[0x0] = 1; break;
+                    case SDLK_c: key[0xB] = 1; break;
+                    case SDLK_v: key[0xF] = 1; break;
+                    case SDLK_ESCAPE: exit(1); break;
+                }
+            } else if (e.type == SDL_KEYUP) {
+                switch(e.key.keysym.sym) {
+                    case SDLK_1: key[0x1] = 0; break;
+                    case SDLK_2: key[0x2] = 0; break;
+                    case SDLK_3: key[0x3] = 0; break;
+                    case SDLK_4: key[0xC] = 0; break;
+                    case SDLK_q: key[0x4] = 0; break;
+                    case SDLK_w: key[0x5] = 0; break;
+                    case SDLK_e: key[0x6] = 0; break;
+                    case SDLK_r: key[0xD] = 0; break;
+                    case SDLK_a: key[0x7] = 0; break;
+                    case SDLK_s: key[0x8] = 0; break;
+                    case SDLK_d: key[0x9] = 0; break;
+                    case SDLK_f: key[0xE] = 0; break;
+                    case SDLK_z: key[0xA] = 0; break;
+                    case SDLK_x: key[0x0] = 0; break;
+                    case SDLK_c: key[0xB] = 0; break;
+                    case SDLK_v: key[0xF] = 0; break;
+				}
         }
         
         //bool should_continue = pop(&opcode);
