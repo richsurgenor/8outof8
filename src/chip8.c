@@ -320,6 +320,13 @@ errno_t execute_instruction (uint16_t instruction) {
                 inc_pc(1);
             }
             break;
+        case 0x5000:
+            if ( V[ nibbles[2] ] == ( bytes[0] )) {
+                inc_pc(2);
+            } else {
+                inc_pc(1);
+            }
+            break;
         case 0x6000: // LD Vx, byte
             // Set Vx = kk
             V[ nibbles[2] ] = ( bytes[0] );
@@ -391,6 +398,8 @@ errno_t execute_instruction (uint16_t instruction) {
                     printf("Invalid instruction: %x", instruction);
                     break;
             }
+            break;
+        }
         case 0x9000: // SNE Vx, Vy
             if ( V[ nibbles[2] ] != V[ nibbles[1] ]) {
                 inc_pc(2);
@@ -398,7 +407,6 @@ errno_t execute_instruction (uint16_t instruction) {
                 inc_pc(1);
             }
             break;
-        }
         case 0xA000: // LD I, addr
             // Set I = nnn
             I = dozens[0];
@@ -408,6 +416,49 @@ errno_t execute_instruction (uint16_t instruction) {
             // Jump to location nnn + V0
             set_pc( V[0] + dozens[0] );
             break;
+        case 0xC000:
+            break;
+        case 0xD000:
+            break;
+        case 0xE000: {
+            switch( instruction & 0xF0FF) {
+                case 0xE09E:
+                    break;
+                case 0xE0A1:
+                    break;
+                default:
+                    printf("Invalid instruction: %x", instruction);
+                    break;
+            }
+            break;
+        }
+        case 0xF000: {
+            switch( instruction & 0xF0FF ) {
+                case 0xF007:
+                    break;
+                case 0xF00A:
+                    break;
+                case 0xF015:
+                    break;
+                case 0xF018:
+                    break;
+                case 0xF01E:
+                    break;
+                case 0xF029:
+                    break;
+                case 0xF033:
+                    break;
+                case 0xF055:
+                    break;
+                case 0xF065:
+                    break;
+                default:
+                    printf("Invalid instruction: %x", instruction);
+                    break;
+            }
+            break;
+        }
+            
         default:
             printf("Invalid instruction: %x", instruction);
             break;
@@ -415,9 +466,6 @@ errno_t execute_instruction (uint16_t instruction) {
             return 0;
     }
     
-    /* skipped instructions:
-     5xy0
-    */
     return 0;
 }
 
