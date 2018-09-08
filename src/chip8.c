@@ -262,7 +262,7 @@ errno_t run(char* rom) {
         
         moving_example++;
 	
-        SDL_Delay( 50 );
+        SDL_Delay( 1 );
 
         /*if (!should_continue) {
             break;
@@ -504,20 +504,22 @@ errno_t execute_instruction (uint16_t instruction) {
             
             assert(nibbles[0] <= MAX_SPRITE_SIZE);
             
+            V[0xF] = 0;
+            
             // TODO: add mod for screen wrap around
             for (int i = 0; i < nibbles[0]; i++) {
                 uint8_t sprite = ram[I+i];
                 for (int j = 0; j < 8; j++) {
                     uint8_t mask = 1 << j;
-                    uint8_t *pixel = &gfx[ (V[ nibbles[2]]) + j ] [ (V[ nibbles[1]]) + i ] ;
+                    uint8_t *pixel = &gfx[ ( ( V[ nibbles[2]]) + j ) % SCREEN_WIDTH ] [ ( V[ nibbles[1]] + i ) % SCREEN_HEIGHT ] ;
                     uint8_t new_pixel = (sprite & mask) >> j;
                     
-                    if ( !V[0xf] && (*pixel && new_pixel) ) {
+                    if ( (*pixel == 1 && new_pixel == 1) ) {
                         // if there isn't already a collision, and the (x,y) and the
                         // current bit of sprite are both 1, then there will be a collision.
                         V[0xf] = 1;
                     }
-                    *pixel ^= new_pixel;
+                    *pixel = *pixel ^ new_pixel;
                     //00-ff
                     // get each bit in the byte that comes in
                 }
