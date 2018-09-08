@@ -24,8 +24,6 @@ static SDL_Renderer* renderer = NULL;
 // SDL Event Handler
 static SDL_Event e;
 
-
-
 // display
 // original display = 64x32 mode, super chip8 = 128x64 mode
 // -----------------
@@ -60,22 +58,44 @@ static uint8_t ram[0x1000];
  */
 
 
-// Relevant to CPU
-// Initialize
+#define FONTSET_ADDRESS 0x00
+#define FONTSET_BYTES_PER_CHAR 5
 
-#define REGISTER (*(volatile uint8_t*)0x10000)
+unsigned char chip8_fontset[80] =
+{
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+};
+
+// Relevant to CPU
+
+// Only one thread so static initialization should be okay.
 static uint16_t pc;
 static uint16_t stack[16];
-static int sp;
+static uint8_t  sp;
 
 static uint8_t V[16];
 static uint16_t I;
 static uint16_t delay_timer;
 static uint16_t snd_timer;
 
-static int panel[64][32];
+static int gfx[64][32];
 
-static char key[0xF];
+static char key[16];
 
 // Coordinate system:
 // -------------------------
@@ -102,15 +122,7 @@ errno_t run(char* rom) {
 	initSDL();
     
     pc = 0x200;
-    sp = 0;
 
-    for (int i = 0; i < 7; i++) {
-        push(i);
-    }
-
-	//Wait two seconds
-    uint16_t opcode;
-    
     int moving_example = 0;
     bool quit = false;
     
@@ -162,11 +174,10 @@ errno_t run(char* rom) {
                     case SDLK_c: key[0xB] = 0; break;
                     case SDLK_v: key[0xF] = 0; break;
 				}
+            }
         }
-        
+            
         //bool should_continue = pop(&opcode);
-        
-        printf ("this is my opcode %d\n", opcode);
         
         if( window == NULL || renderer == NULL)
 		{
@@ -287,25 +298,15 @@ void inc_pc(uint16_t inc) {
     pc += 2 * inc;
 }
 
-bool pop(uint16_t *pc_in) {
-    //printf( "value from stack: %d", stack[sp-1] );
-    *pc_in = stack[sp - 1];
-    //printf( "new instruction value: %d", *instruction );
-    sp--; // sp should never be 0 when this is called.. 
-    printf ("this is my sp: %d", sp); 
-    if (sp <= 0) {
-        return false;
+bool is_key_pressed(uint16_t* pressed_key) {
+    for (int i = 0; i < 16; i++) {
+        if (key[i]) {
+            *pressed_key = i;
+            return true;
+        }
     }
-    return true;
+    return false;
 }
-
-void push(uint16_t pc_in) {
-    //printf ("sp: %d\n", sp);
-    stack[sp] = pc_in;
-    //printf ("instruction: %d\n", instruction);
-    sp++;
-}
-
 
 // going to have to decode instructions based on each byte of information
 
@@ -314,38 +315,42 @@ errno_t execute_instruction (uint16_t instruction) {
     // decision: because of the variable length nature of the operands,
     // switch statements will be more practical.
     
-    if (instruction == 0x00e0) { // CLS: Clear the display
-        // stuff
-        return 0;
-    }
-    
     uint8_t nibbles[4];
     nibbles[0] = (instruction & 0x000F);
     nibbles[1] = (instruction & 0x00F0) >> 4;
     nibbles[2] = (instruction & 0x0F00) >> 8;
     nibbles[3] = (instruction & 0xF000) >> 12;
     
-    uint8_t bytes[2];
-    bytes[0] = nibbles[0] + nibbles[1];
-    bytes[1] = nibbles[2] + nibbles[3];
-    
-    uint16_t dozens[2];
-    dozens[0] = bytes[0] + nibbles[2]; // first 3 nibbles (from right)
-    dozens[1] = nibbles[1] + bytes[1]; // last 3 nibbles (from right)
+    uint8_t kk = nibbles[0] + nibbles[1];
+    uint16_t nnn = kk + nibbles[2]; // first 3 nibbles (from right)
     
     // note that instructions are in multiples of 2, so when spec says inc pc by 2, it will be inc by 4 and so on.
     switch ( instruction & 0xF000 ) { // first level
+        case 0x0000: {
+            switch(instruction) {
+                case 0x00e0:
+                    // clear graphics here
+                    inc_pc(1);
+                    break;
+                case 0x00ee:
+                    set_pc(stack[--sp]);
+                    break;
+                default:
+                    printf("Invalid instruction: %x", instruction);
+                    break;
+            }
+            break;
+        }
         case 0x1000: // JP: Jump to location nnn
-            set_pc(dozens[0]); // instruction & ~(0xF000); // only preserve nnn
+            set_pc(nnn); // instruction & ~(0xF000); // only preserve nnn
             break;
         case 0x2000: // CALL: Call subroutine at nnn
-            sp++;
-            push(pc);
-            set_pc(dozens[0]); // instruction & ~(0xF000);
+            stack[sp++] = pc + 2;
+            set_pc(nnn); // instruction & ~(0xF000);
             break;
         case 0x3000: // SE Vx, byte
             // If Vx == kk, inc pc by 2
-            if ( V[ nibbles[2] ] == bytes[1]) {
+            if ( V[ nibbles[2] ] == kk) {
                 inc_pc(2);
             } else {
                 inc_pc(1);;
@@ -353,14 +358,14 @@ errno_t execute_instruction (uint16_t instruction) {
             break;
         case 0x4000: // SNE Vx, byte
             // Skip next instruction if Vx != kk
-            if ( V[ nibbles[2] ] != ( bytes[0] )) {
+            if ( V[ nibbles[2] ] != ( kk )) {
                 inc_pc(2);
             } else {
                 inc_pc(1);
             }
             break;
         case 0x5000:
-            if ( V[ nibbles[2] ] == ( bytes[0] )) {
+            if ( V[ nibbles[2] ] == ( kk )) {
                 inc_pc(2);
             } else {
                 inc_pc(1);
@@ -368,12 +373,12 @@ errno_t execute_instruction (uint16_t instruction) {
             break;
         case 0x6000: // LD Vx, byte
             // Set Vx = kk
-            V[ nibbles[2] ] = ( bytes[0] );
+            V[ nibbles[2] ] = ( kk );
             inc_pc(1);
             break;
         case 0x7000: // 7xkk : ADD Vx, byte
             // Set Vx = Vx + kk
-            V[ nibbles[2] ] = V[ nibbles[2] ] + bytes[0];
+            V[ nibbles[2] ] = V[ nibbles[2] ] + kk;
             inc_pc(1);
             break;
         case 0x8000: {
@@ -448,22 +453,37 @@ errno_t execute_instruction (uint16_t instruction) {
             break;
         case 0xA000: // LD I, addr
             // Set I = nnn
-            I = dozens[0];
+            I = nnn;
             inc_pc(1);
             break;
         case 0xB000: // JP V0, addr
             // Jump to location nnn + V0
-            set_pc( V[0] + dozens[0] );
+            set_pc( V[0] + nnn );
             break;
-        case 0xC000:
+        case 0xC000: // RND Vx, byte
+            // Set Vx = random byte AND kk
+            V[ nibbles[2] ] = rand_lim(0xFF) & kk;
+            inc_pc(1);
             break;
-        case 0xD000:
+        case 0xD000: // DRW Vx, Vy, nibble
+            // Display n-byte sprite starting at memory location I
+            // at (Vx, Vy), set VF = collision
             break;
         case 0xE000: {
             switch( instruction & 0xF0FF) {
                 case 0xE09E:
+                    if ( key[ V[ nibbles[2] ] ] ) {
+                        inc_pc(2);
+                    } else {
+                        inc_pc(1);
+                    }
                     break;
                 case 0xE0A1:
+                    if ( !key[ V[ nibbles[2] ] ] ) {
+                        inc_pc(2);
+                    } else {
+                        inc_pc(1);
+                    }
                     break;
                 default:
                     printf("Invalid instruction: %x", instruction);
@@ -474,22 +494,55 @@ errno_t execute_instruction (uint16_t instruction) {
         case 0xF000: {
             switch( instruction & 0xF0FF ) {
                 case 0xF007:
+                    V[ nibbles[ 2] ] = delay_timer;
+                    inc_pc(1);
                     break;
-                case 0xF00A:
+                case 0xF00A: { // LD Vx, K
+                    // Stop all execution until key is pressed
+                    // and set Vx to key.
+                    
+                    // Note that this will cause cpu to loop until a
+                    // key is pressed.
+                    uint16_t pressed_key;
+                    if (is_key_pressed(&pressed_key)) {
+                        V[ nibbles[2] ] = pressed_key;
+                        inc_pc(1);
+                    }
                     break;
+                }
                 case 0xF015:
+                    delay_timer = V[ nibbles[2] ];
+                    inc_pc(1);
                     break;
                 case 0xF018:
+                    snd_timer = V[ nibbles[2] ];
+                    printf("BEEEEEEEP");
+                    inc_pc(1);
                     break;
-                case 0xF01E:
+                case 0xF01E: // ADD I, Vx
+                    I = I + V[ nibbles[2] ];
+                    inc_pc(1);
                     break;
                 case 0xF029:
                     break;
                 case 0xF033:
+                    ram[I] = V[ nibbles[2] ] / 100;
+                    ram[I+1] = (V[ nibbles[2] ] / 10) % 10;
+                    ram[I+2] = V[ nibbles[2] ] % 10;
+                    inc_pc(1);
                     break;
-                case 0xF055:
+                case 0xF055: {
+                    for ( int i = 0; i <= V[ nibbles[2] ]; i++ ) {
+                        ram[I+i] = V[i];
+                    }
+                    inc_pc(1);
                     break;
+                }
                 case 0xF065:
+                    for ( int i = 0; i <= V[ nibbles[2] ]; i++ ) {
+                        V[i] = ram[I+i];
+                    }
+                    inc_pc(1);
                     break;
                 default:
                     printf("Invalid instruction: %x", instruction);
@@ -505,12 +558,6 @@ errno_t execute_instruction (uint16_t instruction) {
             return 0;
     }
     
-    return 0;
-}
-
-int test() {
-    printf ("testing stack...");
-    pc = 0x0;
     return 0;
 }
 
@@ -548,3 +595,18 @@ void run_basic_tests(char* rom) {
     load_rom(rom);
     
 }
+
+int rand_lim(int limit) {
+    /* return a random number between 0 and limit inclusive.
+     */
+    
+    int divisor = RAND_MAX/(limit+1);
+    int retval;
+    
+    do {
+        retval = rand() / divisor;
+    } while (retval > limit);
+    
+    return retval;
+}
+
