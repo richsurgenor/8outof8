@@ -202,8 +202,8 @@ errno_t run(char* rom) {
             
             SDL_SetRenderDrawColor(renderer, 0, 255, 0, SDL_ALPHA_OPAQUE);
             
-            gfx[0][0] = 1;
-            gfx[63][31] = 1;
+            //gfx[0][0] = 1;
+            //gfx[63][31] = 1;
             
             SDL_Point points[SCREEN_WIDTH * SCREEN_HEIGHT]; // 2048 points max
             int actual_pts = 0;
@@ -255,7 +255,11 @@ errno_t run(char* rom) {
 		}
         
         fetch();
-        //delay_timer--;
+        
+        if (delay_timer > 0) {
+            delay_timer--;
+        }
+        
         moving_example++;
 	
         SDL_Delay( 500 );
@@ -349,17 +353,18 @@ errno_t execute_instruction (uint16_t instruction) {
     nibbles[2] = (instruction & 0x0F00) >> 8;
     nibbles[3] = (instruction & 0xF000) >> 12;
     
-    uint8_t kk = nibbles[0] + nibbles[1];
-    uint16_t nnn = kk + nibbles[2]; // first 3 nibbles (from right)
+    uint8_t kk = nibbles[0] | ( nibbles[1] << 4 );
+    uint16_t nnn = kk | (nibbles[2] << 8); // first 3 nibbles (from right)
     
     // note that instructions are in multiples of 2, so when spec says inc pc by 2, it will be inc by 4 and so on.
     switch ( instruction & 0xF000 ) { // first level
         case 0x0000: {
             switch(instruction) {
-                case 0x00e0:
+                //case 0x00e0:
+                    //TODO: Implement this!
                     // clear graphics here
-                    inc_pc(1);
-                    break;
+                //    inc_pc(1);
+                //    break;
                 case 0x00ee:
                     set_pc(stack[--sp]);
                     break;
@@ -381,7 +386,7 @@ errno_t execute_instruction (uint16_t instruction) {
             if ( V[ nibbles[2] ] == kk) {
                 inc_pc(2);
             } else {
-                inc_pc(1);;
+                inc_pc(1);
             }
             break;
         case 0x4000: // SNE Vx, byte
@@ -499,6 +504,7 @@ errno_t execute_instruction (uint16_t instruction) {
             
             assert(nibbles[0] <= MAX_SPRITE_SIZE);
             
+            // TODO: add mod for screen wrap around
             for (int i = 0; i < nibbles[0]; i++) {
                 uint8_t sprite = ram[I+i];
                 for (int j = 7; j >= 0; j--) {
@@ -517,6 +523,7 @@ errno_t execute_instruction (uint16_t instruction) {
                 }
             }
             
+            inc_pc(1);
             draw = true;
             break;
         }
@@ -574,8 +581,8 @@ errno_t execute_instruction (uint16_t instruction) {
                     I = I + V[ nibbles[2] ];
                     inc_pc(1);
                     break;
-                case 0xF029:
-                    break;
+                //case 0xF029:
+                //    break;
                 case 0xF033:
                     ram[I] = V[ nibbles[2] ] / 100;
                     ram[I+1] = (V[ nibbles[2] ] / 10) % 10;
@@ -586,6 +593,8 @@ errno_t execute_instruction (uint16_t instruction) {
                     for ( int i = 0; i <= V[ nibbles[2] ]; i++ ) {
                         ram[I+i] = V[i];
                     }
+                    // not clear
+                    I += V[ nibbles[2] ] + 1;
                     inc_pc(1);
                     break;
                 }
@@ -593,6 +602,8 @@ errno_t execute_instruction (uint16_t instruction) {
                     for ( int i = 0; i <= V[ nibbles[2] ]; i++ ) {
                         V[i] = ram[I+i];
                     }
+                    // not clear
+                    I += V[ nibbles[2] ] + 1;
                     inc_pc(1);
                     break;
                 default:
