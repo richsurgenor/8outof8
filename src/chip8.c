@@ -262,7 +262,7 @@ errno_t run(char* rom) {
         
         moving_example++;
 	
-        SDL_Delay( 500 );
+        SDL_Delay( 50 );
 
         /*if (!should_continue) {
             break;
@@ -507,9 +507,9 @@ errno_t execute_instruction (uint16_t instruction) {
             // TODO: add mod for screen wrap around
             for (int i = 0; i < nibbles[0]; i++) {
                 uint8_t sprite = ram[I+i];
-                for (int j = 7; j >= 0; j--) {
+                for (int j = 0; j < 8; j++) {
                     uint8_t mask = 1 << j;
-                    uint8_t *pixel = &gfx[ nibbles[2] ] [ nibbles[1] ] ;
+                    uint8_t *pixel = &gfx[ (V[ nibbles[2]]) + j ] [ (V[ nibbles[1]]) + i ] ;
                     uint8_t new_pixel = (sprite & mask) >> j;
                     
                     if ( !V[0xf] && (*pixel && new_pixel) ) {
