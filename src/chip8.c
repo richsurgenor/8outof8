@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <limits.h>
+#include "assert.h"
 
 //Screen dimension constants
 const int WINDOW_SCALE = 10;
@@ -60,6 +61,7 @@ static uint8_t ram[0x1000];
 
 #define FONTSET_ADDRESS 0x00
 #define FONTSET_BYTES_PER_CHAR 5
+#define MAX_SPRITE_SIZE 15
 
 unsigned char chip8_fontset[80] =
 {
@@ -93,7 +95,8 @@ static uint16_t I;
 static uint16_t delay_timer;
 static uint16_t snd_timer;
 
-static int gfx[64][32];
+static uint8_t gfx[64][32];
+static bool draw = false;
 
 static char key[16];
 
@@ -116,13 +119,14 @@ errno_t run(char* rom) {
     //load_rom("wipeoff.rom");
     load_rom(rom);
     
-    //const char* blah = "hello";
-    //printf( "blah %s this is size of blah %d\n", blah, sizeof(*blah) );
-    
 	initSDL();
     
     pc = 0x200;
 
+    for (int i = 0; i < 80; i++) {
+        ram[FONTSET_ADDRESS + i] = chip8_fontset[i];
+    }
+    
     int moving_example = 0;
     bool quit = false;
     
@@ -131,11 +135,10 @@ errno_t run(char* rom) {
         
         // event loop
         while( SDL_PollEvent( &e ) != 0 ) {
-            //User requests quit
+            //User requests quit or presses/releases key
             if( e.type == SDL_QUIT ) {
                 quit = true;
             } else if (e.type == SDL_KEYDOWN) {
-                
                 switch(e.key.keysym.sym) {
                     case SDLK_1: key[0x1] = 1; break;
                     case SDLK_2: key[0x2] = 1; break;
@@ -185,7 +188,7 @@ errno_t run(char* rom) {
             exit(1);
 		}
 		
-        bool draw = false;
+        // draw = true
         if (draw) {
 			//Get window surface
 			//screenSurface = SDL_GetWindowSurface( window );
@@ -199,17 +202,41 @@ errno_t run(char* rom) {
             
             SDL_SetRenderDrawColor(renderer, 0, 255, 0, SDL_ALPHA_OPAQUE);
             
-            SDL_Point points[100];
+            gfx[0][0] = 1;
+            gfx[63][31] = 1;
+            
+            SDL_Point points[SCREEN_WIDTH * SCREEN_HEIGHT]; // 2048 points max
+            int actual_pts = 0;
+            
+            for (int i = 0; i < SCREEN_WIDTH; i++) {
+                for (int j = 0; j < SCREEN_HEIGHT; j++) {
+                    if (gfx[i][j]) { // if point is set to 1
+                        points[actual_pts].x = i;
+                        points[actual_pts].y = j;
+                        actual_pts++;
+                    }
+                }
+            }
+                
             //SDL_Point test_point = { .x = 8, .y=8 };
             
-            for (int i = 0; i < 14; i++) {
+            /*for (int i = 0; i < 14; i++) {
                 points[i].x = i+moving_example;
                 points[i].y = i+moving_example;
             }
             
+            points[14].x = 0;
+            points[14].y = 0;
+            points[15].x = 63;
+            points[15].y = 0;
+            points[16].x = 0;
+            points[16].y = 31; */
+           // points[17].x = 0;
+           // points[17].y = 0;
+            
             //const SDL_Point* point_array = { points };
             
-            SDL_RenderDrawPoints( renderer, points, 14);
+            SDL_RenderDrawPoints( renderer, points, actual_pts); // note this includes 0
             //SDL_RenderDrawPoints( renderer, points, 14);
             
             //SDL_BlitSurface( gXOut, NULL, gScreenSurface, NULL );
@@ -224,10 +251,11 @@ errno_t run(char* rom) {
 			
 			//Update the surface
 			SDL_UpdateWindowSurface( window );
+            draw = false; // wait to be toggled again.
 		}
         
         fetch();
-        
+        //delay_timer--;
         moving_example++;
 	
         SDL_Delay( 500 );
@@ -465,10 +493,33 @@ errno_t execute_instruction (uint16_t instruction) {
             V[ nibbles[2] ] = rand_lim(0xFF) & kk;
             inc_pc(1);
             break;
-        case 0xD000: // DRW Vx, Vy, nibble
+        case 0xD000: { // DRW Vx, Vy, nibble
             // Display n-byte sprite starting at memory location I
             // at (Vx, Vy), set VF = collision
+            
+            assert(nibbles[0] <= MAX_SPRITE_SIZE);
+            
+            for (int i = 0; i < nibbles[0]; i++) {
+                uint8_t sprite = ram[I+i];
+                for (int j = 7; j >= 0; j--) {
+                    uint8_t mask = 1 << j;
+                    uint8_t *pixel = &gfx[ nibbles[2] ] [ nibbles[1] ] ;
+                    uint8_t new_pixel = (sprite & mask) >> j;
+                    
+                    if ( !V[0xf] && (*pixel && new_pixel) ) {
+                        // if there isn't already a collision, and the (x,y) and the
+                        // current bit of sprite are both 1, then there will be a collision.
+                        V[0xf] = 1;
+                    }
+                    *pixel ^= new_pixel;
+                    //00-ff
+                    // get each bit in the byte that comes in
+                }
+            }
+            
+            draw = true;
             break;
+        }
         case 0xE000: {
             switch( instruction & 0xF0FF) {
                 case 0xE09E:
@@ -554,8 +605,6 @@ errno_t execute_instruction (uint16_t instruction) {
         default:
             printf("Invalid instruction: %x", instruction);
             break;
-        common:
-            return 0;
     }
     
     return 0;
