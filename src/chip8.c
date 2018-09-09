@@ -360,16 +360,20 @@ errno_t execute_instruction (uint16_t instruction) {
     switch ( instruction & 0xF000 ) { // first level
         case 0x0000: {
             switch(instruction) {
-                //case 0x00e0:
-                    //TODO: Implement this!
-                    // clear graphics here
+                //case 0x0000:
                 //    inc_pc(1);
                 //    break;
+                case 0x00e0:
+                    memset(&gfx, 0x0, sizeof(gfx));
+                    draw = true;
+                    inc_pc(1);
+                    break;
                 case 0x00ee:
                     set_pc(stack[--sp]);
                     break;
-                default:
-                    printf("Invalid instruction: %x", instruction);
+                default: // assume no op
+                    //printf("unknown instruc: %x", instruction);
+                    //inc_pc(1);
                     break;
             }
             break;
@@ -583,8 +587,10 @@ errno_t execute_instruction (uint16_t instruction) {
                     I = I + V[ nibbles[2] ];
                     inc_pc(1);
                     break;
-                //case 0xF029:
-                //    break;
+                case 0xF029:
+                    I = FONTSET_BYTES_PER_CHAR * V[ nibbles[2] ];
+                    inc_pc(1);
+                    break;
                 case 0xF033:
                     ram[I] = V[ nibbles[2] ] / 100;
                     ram[I+1] = (V[ nibbles[2] ] / 10) % 10;
