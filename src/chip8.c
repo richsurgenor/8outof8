@@ -6,7 +6,7 @@
 #include "assert.h"
 
 //Screen dimension constants
-const int WINDOW_SCALE = 10;
+const int WINDOW_SCALE = 20;
 const int SCREEN_WIDTH = 64;
 const int SCREEN_HEIGHT = 32;
 
@@ -580,7 +580,7 @@ errno_t execute_instruction (uint16_t instruction) {
                     break;
                 case 0xF018:
                     snd_timer = V[ nibbles[2] ];
-                    printf("BEEEEEEEP");
+                    printf("BEEEEEEEP\N");
                     inc_pc(1);
                     break;
                 case 0xF01E: // ADD I, Vx
@@ -597,7 +597,7 @@ errno_t execute_instruction (uint16_t instruction) {
                     ram[I+2] = V[ nibbles[2] ] % 10;
                     inc_pc(1);
                     break;
-                case 0xF055: {
+                case 0xF055: { //TODO: FIGURE OUT WHY BROKEN.
                     for ( int i = 0; i <= V[ nibbles[2] ]; i++ ) {
                         ram[I+i] = V[i];
                     }
